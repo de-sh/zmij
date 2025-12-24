@@ -8,8 +8,10 @@ pub fn main() !void {
     const stdout = &stdout_writer.interface;
     const test_values = [_]f64{ 123.456, std.math.pi, 1e-20, 1.2345678901234567e300, 0.0 };
 
-    try stdout.print("{s:<20} | {s:<15} | {s:<15}\n", .{ "Value", "std.fmt (ns)", "zmij (ns)" });
-    try stdout.print("{s:-<20}-|-{s:-<15}-|-{s:-<15}\n", .{ "", "", "" });
+    try stdout.print("{s:<43} | {s:<43}\n", .{ "std.fmt (ns)", "zmij (ns)" });
+    try stdout.print("{s:-<43}-|-{s:-<43}\n", .{ "", "" });
+    try stdout.print("{s:<25} | {s:<15} | {s:<25} | {s:<15}\n", .{ "Value", "Avg. Time", "Value", "Avg. Time" });
+    try stdout.print("{s:-<25}-|-{s:-<15}-|-{s:-<25}-|-{s:-<15}\n", .{ "", "", "", "" });
 
     inline for (test_values) |val| {
         const iterations = 1_000_000;
@@ -33,10 +35,14 @@ pub fn main() !void {
         }
         const zmij_time = timer.read();
 
+        const std_val = try std.fmt.bufPrint(&buf, "{e}", .{val});
+        var zmij_buf = zmij.Buffer{};
+        const zmij_val = zmij_buf.format(val);
+
         const std_avg = @as(f64, @floatFromInt(std_time)) / iterations;
         const zmij_avg = @as(f64, @floatFromInt(zmij_time)) / iterations;
 
-        try stdout.print("{e:<20} | {d:>15.2} | {d:>15.2}\n", .{ val, std_avg, zmij_avg });
+        try stdout.print("{s:<25} | {d:>15} | {s:<25} | {d:>15}\n", .{ std_val, std_avg, zmij_val, zmij_avg });
     }
 
     try stdout.flush();
