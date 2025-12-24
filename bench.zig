@@ -8,9 +8,9 @@ pub fn main() !void {
     const stdout = &stdout_writer.interface;
     const test_values = [_]f64{ 123.456, std.math.pi, 1e-20, 1.2345678901234567e300, 0.0 };
 
-    try stdout.print("{s:<43} | {s:<43}\n", .{ "std.fmt (ns)", "zmij (ns)" });
+    try stdout.print("{s:<43} | {s:<43}\n", .{ "std.fmt", "zmij" });
     try stdout.print("{s:-<43}-|-{s:-<43}\n", .{ "", "" });
-    try stdout.print("{s:<25} | {s:<15} | {s:<25} | {s:<15}\n", .{ "Value", "Avg. Time", "Value", "Avg. Time" });
+    try stdout.print("{s:<25} | {s:<15} | {s:<25} | {s:<15}\n", .{ "Value", "Avg. Time (ns)", "Value", "Avg. Time (ns)" });
     try stdout.print("{s:-<25}-|-{s:-<15}-|-{s:-<25}-|-{s:-<15}\n", .{ "", "", "", "" });
 
     inline for (test_values) |val| {
