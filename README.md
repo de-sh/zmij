@@ -1,10 +1,10 @@
-# zmij :dragon:
+# Żmij :dragon:
 
 Zig implementation of a fast floating point to string conversion algorithm
 
 Inspirations: 
-1. [David Tolnay's Rust implementation](https://github.com/dtolnay/zmij)
-2. [Victor Zverovich's C++ implementation](https://github.com/vitaut/zmij)
+1. [Victor Zverovich's C/C++ implementation](https://github.com/vitaut/zmij) - **Reference Implementation**
+2. [David Tolnay's Rust implementation](https://github.com/dtolnay/zmij)
 
 
 ### Example
