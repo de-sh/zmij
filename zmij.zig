@@ -631,30 +631,24 @@ pub const POW10_SIGNIFICANDS: [617]struct { u64, u64 } = .{
     .{ 0x9e19db92b4e31ba9, 0x6c07a2c26a8346d2 }, //  324
 };
 
-const uint128 = struct {
-    hi: u64,
-    lo: u64,
+// Computes 128-bit result of multiplication of two 64-bit unsigned integers.
+inline fn umul128(x: u64, y: u64) u128 {
+    return @as(u128, x) * y;
+}
 
-    // Computes 128-bit result of multiplication of two 64-bit unsigned integers.
-    inline fn umul128(x: u64, y: u64) u128 {
-        return @as(u128, x) * y;
-    }
-
-    inline fn umul192Upper128(x_hi: u64, x_lo: u64, y: u64) u128 {
-        const x = (@as(u128, x_hi) << 64) | x_lo;
-        const res = (@as(u256, x) * y) >> 64;
-        return @intCast(res);
-    }
-};
+inline fn umul192Upper128(x_hi: u64, x_lo: u64, y: u64) u128 {
+    const x = (@as(u128, x_hi) << 64) | x_lo;
+    const res = (@as(u256, x) * y) >> 64;
+    return @intCast(res);
+}
 
 // Computes upper 64 bits of multiplication of x and y, discards the least
 // significant bit and rounds to odd, where x = uint128_t(x_hi << 64) | x_lo.
 pub fn umul192Upper64InexactToOdd(x_hi: u64, x_lo: u64, y: u64) u64 {
-    const r = uint128.umul192Upper128(x_hi, x_lo, y);
+    const r = umul192Upper128(x_hi, x_lo, y);
     const r_hi: u64 = @intCast(r >> 64);
     const r_lo: u64 = @intCast(r & 0xFFFFFFFFFFFFFFFF);
-    const r_lo_is_odd: u64 = @intFromBool((r_lo & 1) != 0);
-    return r_hi | r_lo_is_odd;
+    return r_hi | @intFromBool((r_lo & 1) != 0);
 }
 
 // Returns {value / 100, value % 100} correct for values of up to 4 digits.
@@ -677,11 +671,11 @@ inline fn countTrailingNonZeros(x: u64) usize {
     // We count the number of characters until there are only '0' == 0x30
     // characters left.
     // The code is equivalent to
-    //    8 - (x & !0x30303030_30303030).leading_zeros() / 8
+    //    8 - @clz(x & !0x30303030_30303030) / 8
     // but if the BSR instruction is emitted, subtracting the constant before
     // dividing allows combining it with the subtraction from BSR counting in
     // the opposite direction.
-    //    (71 - (x & !0x30303030_30303030).leading_zeros()) as usize / 8
+    //    (71 - @clz(x & !0x30303030_30303030) / 8
     // Additionally, the bsr instruction requires a zero check. Since the high
     // bit is never set we can avoid the zero check by shifting the datum left
     // by one and using XOR to both remove the 0x30s and insert a sentinel bit
@@ -706,7 +700,7 @@ inline fn digits2(value: usize) *const [2]u8 {
 
 inline fn digits2U64(value: u32) u64 {
     const digits = digits2(@as(usize, value));
-    return @as(u64, @as(u16, digits[0]) | (@as(u16, digits[1]) << 8));
+    return @as(u64, @as(u64, digits[0]) | (@as(u64, digits[1]) << 8));
 }
 
 // Converts the value `aa * 10**6 + bb * 10**4 + cc * 10**2 + dd` to a string
@@ -870,7 +864,7 @@ pub fn dtoa(value: f64, buffer: [*]u8) usize {
     const exp_shift = bin_exp + pow10_bin_exp + 1;
 
     if (regular) {
-        const res = uint128.umul192Upper128(pow10_hi, pow10_lo - 1, bin_sig << @intCast(exp_shift));
+        const res = umul192Upper128(pow10_hi, pow10_lo - 1, bin_sig << @intCast(exp_shift));
         const integral = res >> 64;
         const fractional = res & 0xFFFFFFFFFFFFFFFF;
         const digit = integral % 10;
