@@ -941,16 +941,16 @@ pub const Buffer = struct {
 test "utilities" {
     const expectEqual = @import("std").testing.expectEqual;
 
-    try expectEqual(@as(u64, 64), @clz(@as(u64, 0)));
-    try expectEqual(@as(u64, 63), @clz(@as(u64, 1)));
-    try expectEqual(@as(u64, 0), @clz(@as(u64, 0xFFFFFFFFFFFFFFFF)));
+    try expectEqual(64, @clz(@as(u64, 0)));
+    try expectEqual(63, @clz(@as(u64, 1)));
+    try expectEqual(0, @clz(@as(u64, 0xFFFFFFFFFFFFFFFF)));
 
-    try expectEqual(@as(u64, 0), countTrailingNonZeros(0x30303030_30303030));
-    try expectEqual(@as(u64, 1), countTrailingNonZeros(0x30303030_30303031));
-    try expectEqual(@as(u64, 1), countTrailingNonZeros(0x30303030_30303039));
-    try expectEqual(@as(u64, 7), countTrailingNonZeros(0x30393030_39303030));
-    try expectEqual(@as(u64, 8), countTrailingNonZeros(0x31303030_30303030));
-    try expectEqual(@as(u64, 8), countTrailingNonZeros(0x39303030_30303030));
+    try expectEqual(0, countTrailingNonZeros(0x30303030_30303030));
+    try expectEqual(1, countTrailingNonZeros(0x30303030_30303031));
+    try expectEqual(1, countTrailingNonZeros(0x30303030_30303039));
+    try expectEqual(7, countTrailingNonZeros(0x30393030_39303030));
+    try expectEqual(8, countTrailingNonZeros(0x31303030_30303030));
+    try expectEqual(8, countTrailingNonZeros(0x39303030_30303030));
 
     const pow10 = POW10_SIGNIFICANDS[0];
     try expectEqual(
