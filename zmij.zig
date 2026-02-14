@@ -4,14 +4,9 @@
 //! This Zig implementation is a line-by-line port of [David Tolnay's implementation in Rust](https://github.com/dtolnay/zmij),
 //! which is itself a line-by-line port of [Victor Zverovich's implementation in C++](https://github.com/vitaut/zmij).
 
-pub const BUFFER_SIZE: usize = 24;
-const NAN: []const u8 = "nan";
-const INFINITY: []const u8 = "inf";
-const NEG_INFINITY: []const u8 = "-inf";
-
 // 128-bit significands of strict overestimates of powers of 10.
 // src: https://github.com/dtolnay/zmij/blob/master/src/lib.rs#L38C1-L659C3
-pub const POW10_SIGNIFICANDS: [617]struct { u64, u64 } = .{
+pub const pow10_significands: [617]struct { u64, u64 } = .{
     .{ 0xff77b1fcbebcdc4f, 0x25e8e89c13bb0f7b }, // -292
     .{ 0x9faacf3df73609b1, 0x77b191618c54e9ad }, // -291
     .{ 0xc795830d75038c1d, 0xd59df5b9ef6a2418 }, // -290
@@ -657,9 +652,9 @@ fn divMod100(value: u32) struct {
     r: u32,
 } {
     if (value >= 10_000) unreachable;
-    const EXP: u32 = 19; // 19 is faster or equal to 12 even for 3 digits.
-    const SIG: u32 = (1 << EXP) / 100 + 1;
-    const div = (value * SIG) >> EXP; // value / 100
+    const exp: u32 = 19; // 19 is faster or equal to 12 even for 3 digits.
+    const sig: u32 = (1 << exp) / 100 + 1;
+    const div = (value * sig) >> exp; // value / 100
     return .{ .q = div, .r = value - div * 100 };
 }
 
@@ -680,13 +675,13 @@ inline fn countTrailingNonZeros(x: u64) usize {
     // bit is never set we can avoid the zero check by shifting the datum left
     // by one and using XOR to both remove the 0x30s and insert a sentinel bit
     // at the end.
-    const MASK_WITH_SENTINEL: u64 = (0x30303030_30303030 << 1) | 1;
-    return (70 - @clz((x << 1) ^ MASK_WITH_SENTINEL)) / 8;
+    const mask_with_sentinel: u64 = (0x30303030_30303030 << 1) | 1;
+    return (70 - @clz((x << 1) ^ mask_with_sentinel)) / 8;
 }
 
 // Align data since unaligned access may be slower when crossing a
 // hardware-specific boundary.
-const DATA: *const [200]u8 align(2) = "0001020304050607080910111213141516171819" ++
+const data: *const [200]u8 align(2) = "0001020304050607080910111213141516171819" ++
     "2021222324252627282930313233343536373839" ++
     "4041424344454647484950515253545556575859" ++
     "6061626364656667686970717273747576777879" ++
@@ -695,7 +690,7 @@ const DATA: *const [200]u8 align(2) = "0001020304050607080910111213141516171819"
 // Converts value in the range [0, 100) to a string. GCC generates a bit better
 // code when value is pointer-size (https://www.godbolt.org/z/5fEPMT1cc).
 inline fn digits2(value: usize) *const [2]u8 {
-    return DATA[value * 2 ..][0..2];
+    return data[value * 2 ..][0..2];
 }
 
 inline fn digits2U64(value: u32) u64 {
@@ -784,9 +779,9 @@ fn write(buffer: [*]u8, dec_sig: u64, dec_exp_in: i32) usize {
 }
 
 /// Writes the shortest correctly rounded decimal representation of `value` to
-/// `buffer`. `buffer` should point to a buffer of size `BUFFER_SIZE` or larger.
+/// `buffer`. `buffer` should point to a buffer of size 24 or larger.
 pub fn dtoa(value: f64, buffer: [*]u8) usize {
-    const NUM_BITS: u32 = @sizeOf(f64) * 8;
+    const num_bits: u32 = @sizeOf(f64) * 8;
     const bits: u64 = @bitCast(value);
     var pos: usize = 0;
 
@@ -795,19 +790,19 @@ pub fn dtoa(value: f64, buffer: [*]u8) usize {
         pos += 1;
     }
 
-    const MANTISSA_DIGITS: u32 = 53;
-    const NUM_SIG_BITS: i32 = MANTISSA_DIGITS - 1;
-    const IMPLICIT_BIT: u64 = 1 << NUM_SIG_BITS;
-    var bin_sig = bits & (IMPLICIT_BIT - 1); // binary significand
+    const mantissa_digits: u32 = 53;
+    const num_sig_bits: i32 = mantissa_digits - 1;
+    const implicit_bit: u64 = 1 << num_sig_bits;
+    var bin_sig = bits & (implicit_bit - 1); // binary significand
     var regular = bin_sig != 0;
 
-    const NUM_EXP_BITS: i32 = NUM_BITS - MANTISSA_DIGITS;
-    const EXP_MASK: i32 = (1 << NUM_EXP_BITS) - 1;
-    const EXP_BIAS: i32 = (1 << (NUM_EXP_BITS - 1)) - 1;
-    var bin_exp = @as(i32, @intCast((bits >> NUM_SIG_BITS) & EXP_MASK)); // binary exponent
-    if (((bin_exp + 1) & EXP_MASK) <= 1) {
+    const num_exp_bits: i32 = num_bits - mantissa_digits;
+    const exp_mask: i32 = (1 << num_exp_bits) - 1;
+    const exp_bias: i32 = (1 << (num_exp_bits - 1)) - 1;
+    var bin_exp: i32 = @as(i32, @intCast((bits >> num_sig_bits) & exp_mask)); // binary exponent
+    if (((bin_exp + 1) & exp_mask) <= 1) {
         if (bin_exp != 0) {
-            @memcpy(buffer[pos..][0..3], if (bin_sig == 0) INFINITY else NAN);
+            @memcpy(buffer[pos..][0..3], if (bin_sig == 0) "inf" else "nan");
             return pos + 3;
         }
         if (bin_sig == 0) {
@@ -815,16 +810,16 @@ pub fn dtoa(value: f64, buffer: [*]u8) usize {
             return pos + 1;
         }
         // Handle subnormals.
-        bin_sig |= IMPLICIT_BIT;
+        bin_sig |= implicit_bit;
         bin_exp = 1;
         regular = true;
     }
 
-    bin_sig ^= IMPLICIT_BIT;
-    bin_exp -= (NUM_SIG_BITS + EXP_BIAS);
+    bin_sig ^= implicit_bit;
+    bin_exp -= (num_sig_bits + exp_bias);
 
     // Handle small integers.
-    if (bin_exp < 0 and bin_exp >= -NUM_SIG_BITS) {
+    if (bin_exp < 0 and bin_exp >= -num_sig_bits) {
         const f = bin_sig >> @intCast(-bin_exp);
         if ((f << @intCast(-bin_exp)) == bin_sig) {
             pos += write(buffer[pos..], f, 0);
@@ -835,24 +830,24 @@ pub fn dtoa(value: f64, buffer: [*]u8) usize {
     // Compute the decimal exponent as floor(log10(2**bin_exp)) if regular or
     // floor(log10(3/4 * 2**bin_exp)) otherwise, without branching.
     // log10_3_over_4_sig = round(log10(3/4) * 2**log10_2_exp)
-    const LOG10_3_OVER_4_SIG: i32 = -131_008;
+    const log10_3_over_4_sig: i32 = -131_008;
     // log10_2_sig = round(log10(2) * 2**log10_2_exp)
-    const LOG10_2_SIG: i32 = 315_653;
-    const LOG10_2_EXP: i32 = 20;
+    const log10_2_sig: i32 = 315_653;
+    const log10_2_exp: i32 = 20;
     if (!(bin_exp >= -1334 and bin_exp <= 2620)) unreachable;
-    const dec_exp = (bin_exp * LOG10_2_SIG + @intFromBool(!regular) * LOG10_3_OVER_4_SIG) >> LOG10_2_EXP;
+    const dec_exp = (bin_exp * log10_2_sig + @intFromBool(!regular) * log10_3_over_4_sig) >> log10_2_exp;
 
-    const DEC_EXP_MIN = -292;
-    const pow10 = POW10_SIGNIFICANDS[@intCast(-dec_exp - DEC_EXP_MIN)];
+    const dec_exp_min = -292;
+    const pow10 = pow10_significands[@intCast(-dec_exp - dec_exp_min)];
     const pow10_hi = pow10[0];
     var pow10_lo = pow10[1];
 
     // log2_pow10_sig = round(log2(10) * 2**log2_pow10_exp) + 1
-    const LOG2_POW10_SIG: i32 = 217707;
-    const LOG2_POW10_EXP = 16;
+    const log2_pow10_sig: i32 = 217707;
+    const log2_pow10_exp = 16;
     if (!(dec_exp >= -350 and dec_exp <= 350)) unreachable;
     // pow10_bin_exp = floor(log2(10**-dec_exp))
-    const pow10_bin_exp: i32 = (-dec_exp * LOG2_POW10_SIG) >> LOG2_POW10_EXP;
+    const pow10_bin_exp: i32 = (-dec_exp * log2_pow10_sig) >> log2_pow10_exp;
     // pow10 = ((pow10_hi << 64) | pow10_lo) * 2**(pow10_bin_exp - 127)
 
     // Shift to ensure the intermediate result of multiplying by a power of 10
@@ -871,12 +866,12 @@ pub fn dtoa(value: f64, buffer: [*]u8) usize {
 
         // Switch to a fixed-point representation with the integral part in the
         // upper 4 bits and the rest being the fractional part.
-        const NUM_INTEGRAL_BITS: i32 = 4;
-        const NUM_FRACTIONAL_BITS = NUM_BITS - NUM_INTEGRAL_BITS;
-        const ten = @as(u64, 10) << NUM_FRACTIONAL_BITS;
+        const num_integral_bits: i32 = 4;
+        const num_fractional_bits = num_bits - num_integral_bits;
+        const ten: u64 = 10 << num_fractional_bits;
         // Fixed-point remainder of the scaled significand modulo 10.
-        const rem10 = (digit << NUM_FRACTIONAL_BITS) | (fractional >> 4);
-        const half_ulp10 = pow10_hi >> @intCast(NUM_INTEGRAL_BITS - exp_shift + 1);
+        const rem10 = (digit << num_fractional_bits) | (fractional >> 4);
+        const half_ulp10 = pow10_hi >> @intCast(num_integral_bits - exp_shift + 1);
         const upper = rem10 + half_ulp10;
 
         // An optimization from yy_double by Yaoyuan Guo:
@@ -886,7 +881,7 @@ pub fn dtoa(value: f64, buffer: [*]u8) usize {
         and
             (ten -% upper) > 1) // Near-boundary case for rounding to n
         {
-            const round_up = (upper >> NUM_FRACTIONAL_BITS) >= 10;
+            const round_up = (upper >> num_fractional_bits) >= 10;
             const round_up_int: u64 = @intFromBool(round_up);
             const shorter = integral - digit + round_up_int * 10;
             const longer = integral + @intFromBool(fractional >= (@as(u64, 1) << 63));
@@ -930,7 +925,7 @@ pub fn dtoa(value: f64, buffer: [*]u8) usize {
 
 /// A utility struct for formatting a double-precision floating-point number using the zmij algorithm.
 pub const Buffer = struct {
-    bytes: [BUFFER_SIZE]u8 = undefined,
+    bytes: [24]u8 = undefined,
 
     pub fn format(self: *Buffer, f: f64) []const u8 {
         const len = dtoa(f, &self.bytes);
@@ -952,7 +947,7 @@ test "utilities" {
     try expectEqual(8, countTrailingNonZeros(0x31303030_30303030));
     try expectEqual(8, countTrailingNonZeros(0x39303030_30303030));
 
-    const pow10 = POW10_SIGNIFICANDS[0];
+    const pow10 = pow10_significands[0];
     try expectEqual(
         0x24554a3ce60a45f5,
         umul192Upper64InexactToOdd(pow10[0], pow10[1], 0x1234567890abcdef << 1),
