@@ -760,9 +760,14 @@ fn write(buffer: [*]u8, dec_sig: u64, dec_exp_in: i32) usize {
     var dec_exp = dec_exp_in + 15 + @intFromBool(dec_sig >= 10_000_000_000_000_000);
     const sig_len = writeSignificand(buffer + 1, dec_sig);
     buffer[0] = buffer[1];
-    buffer[1] = '.';
 
-    var pos = sig_len + 1;
+    var pos: usize = undefined;
+    if (sig_len > 1) {
+        buffer[1] = '.';
+        pos = sig_len + 1;
+    } else {
+        pos = 1;
+    }
     buffer[pos] = 'e';
     pos += 1;
 

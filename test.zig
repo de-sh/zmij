@@ -47,8 +47,16 @@ test "single_candidate" {
 
 test "zero_exponent" {
     // A single digit number
-    try expectEqualStrings("1.e+00", dtoa(1.0));
+    try expectEqualStrings("1e+00", dtoa(1.0));
 
     // A fractional with zero as exponent
     try expectEqualStrings("1.234e+00", dtoa(1.234));
+}
+
+test "zero_fraction" {
+    // Zero
+    try expectEqualStrings("0", dtoa(0.0));
+
+    // Zero as fractional part alone
+    try expectEqualStrings("1e+00", dtoa(1.0));
 }
