@@ -799,7 +799,7 @@ pub fn dtoa(value: f64, buffer: [*]u8) usize {
     const num_exp_bits: i32 = num_bits - mantissa_digits;
     const exp_mask: i32 = (1 << num_exp_bits) - 1;
     const exp_bias: i32 = (1 << (num_exp_bits - 1)) - 1;
-    var bin_exp: i32 = @as(i32, @intCast((bits >> num_sig_bits) & exp_mask)); // binary exponent
+    var bin_exp: i32 = @intCast((bits >> num_sig_bits) & exp_mask); // binary exponent
     if (((bin_exp + 1) & exp_mask) <= 1) {
         if (bin_exp != 0) {
             @memcpy(buffer[pos..][0..3], if (bin_sig == 0) "inf" else "nan");
