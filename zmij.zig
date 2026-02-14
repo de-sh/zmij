@@ -781,7 +781,7 @@ fn write(buffer: [*]u8, dec_sig: u64, dec_exp_in: i32) usize {
 /// Writes the shortest correctly rounded decimal representation of `value` to
 /// `buffer`. `buffer` should point to a buffer of size 24 or larger.
 pub fn dtoa(value: f64, buffer: [*]u8) usize {
-    const num_bits: u32 = @sizeOf(f64) * 8;
+    const num_bits: u32 = @bitSizeOf(f64);
     const bits: u64 = @bitCast(value);
     var pos: usize = 0;
 
