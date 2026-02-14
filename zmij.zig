@@ -806,7 +806,7 @@ pub fn dtoa(value: f64, buffer: [*]u8) usize {
             return pos + 3;
         }
         if (bin_sig == 0) {
-            @memcpy(buffer[pos..][0..1], "0");
+            buffer[pos] = '0';
             return pos + 1;
         }
         // Handle subnormals.
