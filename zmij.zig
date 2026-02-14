@@ -771,13 +771,11 @@ fn write(buffer: [*]u8, dec_sig: u64, dec_exp_in: i32) usize {
     buffer[pos] = 'e';
     pos += 1;
 
-    var sign: u8 = '+';
     if (dec_exp < 0) {
-        sign = '-';
+        buffer[pos] = '-';
+        pos += 1;
         dec_exp = -dec_exp;
     }
-    buffer[pos] = sign;
-    pos += 1;
     const r = divMod100(@intCast(dec_exp));
     if (dec_exp >= 100) {
         buffer[pos] = @intCast('0' + r.q);

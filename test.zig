@@ -34,7 +34,7 @@ test "shorter" {
     try expectEqualStrings("-4.932096661796888e-226", dtoa(-4.932096661796888e-226));
 
     // A possibly shorter overestimate is picked (w' in Schubfach).
-    try expectEqualStrings("3.439070283483335e+35", dtoa(3.439070283483335e+35));
+    try expectEqualStrings("3.439070283483335e35", dtoa(3.439070283483335e+35));
 }
 
 test "single_candidate" {
@@ -42,21 +42,15 @@ test "single_candidate" {
     try expectEqualStrings("6.606854224493745e-17", dtoa(6.606854224493745e-17));
 
     // Only an overestimate is in the rounding region (w in Schubfach).
-    try expectEqualStrings("6.079537928711555e+61", dtoa(6.079537928711555e+61));
+    try expectEqualStrings("6.079537928711555e61", dtoa(6.079537928711555e+61));
 }
 
 test "zero_exponent" {
-    // A single digit number
-    try expectEqualStrings("1e+00", dtoa(1.0));
-
-    // A fractional with zero as exponent
-    try expectEqualStrings("1.234e+00", dtoa(1.234));
+    try expectEqualStrings("1e00", dtoa(1.0));
+    try expectEqualStrings("1.234e00", dtoa(1.234));
 }
 
 test "zero_fraction" {
-    // Zero
     try expectEqualStrings("0", dtoa(0.0));
-
-    // Zero as fractional part alone
-    try expectEqualStrings("1e+00", dtoa(1.0));
+    try expectEqualStrings("1e00", dtoa(1.0));
 }
