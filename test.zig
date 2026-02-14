@@ -46,11 +46,11 @@ test "single_candidate" {
 }
 
 test "zero_exponent" {
-    try expectEqualStrings("1e00", dtoa(1.0));
-    try expectEqualStrings("1.234e00", dtoa(1.234));
+    try expectEqualStrings("1e0", dtoa(1.0));
+    try expectEqualStrings("1.234e0", dtoa(1.234));
 }
 
 test "zero_fraction" {
     try expectEqualStrings("0", dtoa(0.0));
-    try expectEqualStrings("1e00", dtoa(1.0));
+    try expectEqualStrings("1e0", dtoa(1.0));
 }

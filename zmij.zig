@@ -781,8 +781,15 @@ fn write(buffer: [*]u8, dec_sig: u64, dec_exp_in: i32) usize {
         buffer[pos] = @intCast('0' + r.q);
         pos += 1;
     }
-    @memcpy(buffer[pos..][0..2], digits2(r.r));
-    pos += 2;
+
+    const digits = digits2(r.r);
+    if (dec_exp >= 10) {
+        @memcpy(buffer[pos..], digits);
+        pos += 2;
+    } else {
+        buffer[pos] = digits[1];
+        pos += 1;
+    }
 
     return pos;
 }
