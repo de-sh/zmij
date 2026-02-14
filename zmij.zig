@@ -679,6 +679,12 @@ inline fn countTrailingNonZeros(x: u64) usize {
     return (70 - @clz((x << 1) ^ mask_with_sentinel)) / 8;
 }
 
+const small_pow10 = [_]u64{
+    1,                 10,                 100,                 1_000,                 10_000,                 100_000,
+    1_000_000,         10_000_000,         100_000_000,         1_000_000_000,         10_000_000_000,         100_000_000_000,
+    1_000_000_000_000, 10_000_000_000_000, 100_000_000_000_000, 1_000_000_000_000_000, 10_000_000_000_000_000,
+};
+
 // Align data since unaligned access may be slower when crossing a
 // hardware-specific boundary.
 const data: *const [200]u8 align(2) = "0001020304050607080910111213141516171819" ++
@@ -822,7 +828,14 @@ pub fn dtoa(value: f64, buffer: [*]u8) usize {
     if (bin_exp < 0 and bin_exp >= -num_sig_bits) {
         const f = bin_sig >> @intCast(-bin_exp);
         if ((f << @intCast(-bin_exp)) == bin_sig) {
-            pos += write(buffer[pos..], f, 0);
+            // Normalize to a 16-digit significand so write() produces
+            // the correct exponent (e.g. 1 → "1e+00" not "0.000000000000001e+15").
+            // Use @clz to estimate floor(log10(f)), correct by at most 1.
+            const log2 = @as(u32, 63) - @as(u32, @clz(f));
+            var d = (log2 * 77) >> 8; // ≈ floor(log10(f))
+            d += @intFromBool(f >= small_pow10[d + 1]);
+            const scale = @as(u32, 15) - d;
+            pos += write(buffer[pos..], f * small_pow10[scale], -@as(i32, @intCast(scale)));
             return pos;
         }
     }
