@@ -641,8 +641,8 @@ inline fn umul192Upper128(x_hi: u64, x_lo: u64, y: u64) u128 {
 // significant bit and rounds to odd, where x = uint128_t(x_hi << 64) | x_lo.
 pub fn umul192Upper64InexactToOdd(x_hi: u64, x_lo: u64, y: u64) u64 {
     const r = umul192Upper128(x_hi, x_lo, y);
-    const r_hi: u64 = @intCast(r >> 64);
-    const r_lo: u64 = @intCast(r & 0xFFFFFFFFFFFFFFFF);
+    const r_hi: u64 = @truncate(r >> 64);
+    const r_lo: u64 = @truncate(r);
     return r_hi | @intFromBool((r_lo & 1) != 0);
 }
 
@@ -860,8 +860,8 @@ pub fn dtoa(value: f64, buffer: [*]u8) usize {
 
     if (regular) {
         const res = umul192Upper128(pow10_hi, pow10_lo - 1, bin_sig << @intCast(exp_shift));
-        const integral = res >> 64;
-        const fractional = res & 0xFFFFFFFFFFFFFFFF;
+        const integral: u64 = @truncate(res >> 64);
+        const fractional: u64 = @truncate(res);
         const digit = integral % 10;
 
         // Switch to a fixed-point representation with the integral part in the
