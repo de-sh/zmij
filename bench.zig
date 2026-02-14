@@ -17,8 +17,7 @@ pub fn main() !void {
 
         // Benchmark std.fmt
         var timer = try time.Timer.start();
-        var i: u64 = 0;
-        while (i < iterations) : (i += 1) {
+        for (0..iterations) |_| {
             _ = try std.fmt.bufPrint(&buf, "{e}", .{val});
             std.mem.doNotOptimizeAway(&buf);
         }
@@ -26,8 +25,7 @@ pub fn main() !void {
 
         // Benchmark zmij
         timer = try time.Timer.start();
-        i = 0;
-        while (i < iterations) : (i += 1) {
+        for (0..iterations) |_| {
             _ = zmij.dtoa(val, &buf);
             std.mem.doNotOptimizeAway(&buf);
         }
