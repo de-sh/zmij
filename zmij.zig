@@ -886,7 +886,7 @@ pub fn dtoa(value: f64, buffer: [*]u8) usize {
             const shorter = integral - digit + round_up_int * 10;
             const longer = integral + @intFromBool(fractional >= (@as(u64, 1) << 63));
 
-            pos += write(buffer[pos..], if (rem10 <= half_ulp10 or round_up) @intCast(shorter) else @intCast(longer), dec_exp);
+            pos += write(buffer[pos..], if (rem10 <= half_ulp10 or round_up) shorter else longer, dec_exp);
             return pos;
         }
     }
