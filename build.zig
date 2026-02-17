@@ -45,6 +45,20 @@ pub fn build(b: *std.Build) void {
     const test_step = b.step("test", "Run tests");
     test_step.dependOn(&run_tests.step);
 
+    const exhaustive_mod = b.createModule(.{
+        .root_source_file = b.path("test_exhaustive.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+
+    const exhaustive_tests = b.addTest(.{
+        .root_module = exhaustive_mod,
+    });
+
+    const run_exhaustive = b.addRunArtifact(exhaustive_tests);
+    const exhaustive_step = b.step("test-exhaustive", "Run exhaustive f32 round-trip test (slow)");
+    exhaustive_step.dependOn(&run_exhaustive.step);
+
     const bench_mod = b.createModule(.{
         .root_source_file = b.path("bench.zig"),
         .target = target,
