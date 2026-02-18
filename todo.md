@@ -36,8 +36,8 @@
 
 ## Known algorithm issues (exposed by new tests)
 
-- [ ] 28/1022 binade-boundary f64 values don't round-trip correctly (formatted → parsed gives adjacent float)
-- [ ] ~1/100K random f64 values have round-trip failures
-- [ ] ~2/100K random f32 values have round-trip failures
-- [ ] f64 subnormals format as e.g. `0.000000000000005e-309` instead of `5e-324` (numerically correct but not normalized)
-- [ ] Some f32 values produce un-normalized output like `0.00000001342178e16` instead of `1.342178e8`
+- [x] 28/1022 binade-boundary f64 values don't round-trip correctly — fixed by adding pow10 overestimate adjustment in `toDecimalSchubfach`
+- [x] ~1/100K random f64 values have round-trip failures — fixed by pow10 overestimate adjustment
+- [x] ~2/100K random f32 values have round-trip failures — fixed by skipping f32 fast path (constants were f64-only)
+- [x] f64 subnormals format as e.g. `0.000000000000005e-309` instead of `5e-324` — fixed by removing early return in `normalizeSig` for u64
+- [x] Some f32 values produce un-normalized output like `0.00000001342178e16` instead of `1.342178e8` — fixed by skipping f32 fast path

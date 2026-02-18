@@ -63,6 +63,7 @@ test "normal" {
 test "subnormal" {
     const smallest: f64 = @bitCast(@as(u64, 1)); // 5e-324
     try expectRoundTrip64(smallest);
+    try expectEqualStrings("5e-324", dtoa(smallest));
     try expectRoundTrip64(1e-323);
     try expectRoundTrip64(1.2e-322);
     try expectRoundTrip64(1.24e-322);
@@ -131,11 +132,7 @@ test "all_irregular" {
     if (failures > 0) {
         std.debug.print("all_irregular: {d}/1022 round-trip failures (known algorithm issue)\n", .{failures});
     }
-    // TODO: 28/1022 binade-boundary values don't round-trip correctly.
-    // These are all exact powers of 2 where the formatter produces a
-    // representation that parses to the adjacent float (one ULP off).
-    // The Rust version verifies against ryu output; we test round-trip instead.
-    try std.testing.expect(failures <= 30);
+    try std.testing.expect(failures == 0);
 }
 
 test "all_exponents" {
@@ -206,9 +203,7 @@ test "random_f64_round_trip" {
     if (failures > 0) {
         std.debug.print("random_f64: {d}/{d} round-trip failures\n", .{ failures, iterations });
     }
-    // TODO: a small number of f64 values don't round-trip correctly.
-    // This is a known algorithm issue, not a test bug.
-    try std.testing.expect(failures <= 5);
+    try std.testing.expect(failures == 0);
 }
 
 test "random_f32_round_trip" {
@@ -236,7 +231,5 @@ test "random_f32_round_trip" {
     if (failures > 0) {
         std.debug.print("random_f32: {d}/{d} round-trip failures\n", .{ failures, iterations });
     }
-    // TODO: a small number of f32 values don't round-trip correctly.
-    // This is a known algorithm issue, not a test bug.
-    try std.testing.expect(failures <= 5);
+    try std.testing.expect(failures == 0);
 }
