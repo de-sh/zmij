@@ -645,7 +645,7 @@ pub fn umul192Upper64InexactToOdd(x_hi: u64, x_lo: u64, y: u64) u64 {
     const r = umul192Upper128(x_hi, x_lo, y);
     const r_hi: u64 = @truncate(r >> 64);
     const r_lo: u64 = @truncate(r);
-    return r_hi | @intFromBool((r_lo & 1) != 0);
+    return r_hi | @intFromBool((r_lo >> 1) != 0);
 }
 
 // Returns {value / 100, value % 100} correct for values of up to 4 digits.
@@ -834,8 +834,8 @@ const ToDecimalResult = struct {
 fn computeDecExp(bin_exp: i32, regular: bool) i32 {
     // Compute the decimal exponent as floor(log10(2**bin_exp)) if regular or
     // floor(log10(3/4 * 2**bin_exp)) otherwise, without branching.
-    // log10_3_over_4_sig = round(log10(3/4) * 2**log10_2_exp)
-    const log10_3_over_4_sig: i32 = -131_008;
+    // log10_3_over_4_sig = -log10(3/4) * 2**log10_2_exp rounded to a power of 2
+    const log10_3_over_4_sig: i32 = -131_072;
     // log10_2_sig = round(log10(2) * 2**log10_2_exp)
     const log10_2_sig: i32 = 315_653;
     const log10_2_exp: i32 = 20;
