@@ -757,10 +757,43 @@ fn writeSignificand(buffer_in: [*]u8, value: u64) usize {
     return pos + countTrailingNonZeros(ffgghhiiDigits);
 }
 
+// Writes a significand consisting of 8 or 9 decimal digits (f32) and removes
+// trailing zeros. Matches Rust's write_significand<f32>.
+fn writeSignificandF32(buffer_in: [*]u8, value: u64, extra_digit: bool) usize {
+    var pos: usize = 0;
+    // Optional leading digit for 9-digit values.
+    if (extra_digit) {
+        buffer_in[pos] = @intCast('0' + @as(u8, @truncate(value / 100_000_000)));
+        pos += 1;
+    }
+    // Write remaining 8 digits.
+    const remainder: u32 = @truncate(value % 100_000_000);
+    const abcd = remainder / 10000;
+    const efgh = remainder % 10000;
+    const r1 = divMod100(abcd);
+    const r2 = divMod100(efgh);
+    const eightDigits = digits8U64(r1.q, r1.r, r2.q, r2.r);
+    @as(*align(1) u64, @ptrCast(buffer_in + pos)).* = eightDigits;
+    return pos + countTrailingNonZeros(eightDigits);
+}
+
 // Writes the decimal FP number dec_sig * 10**dec_exp to buffer.
-fn write(buffer: [*]u8, dec_sig: u64, dec_exp_in: i32) usize {
-    var dec_exp = dec_exp_in + 15 + @intFromBool(dec_sig >= 10_000_000_000_000_000);
-    const sig_len = writeSignificand(buffer + 1, dec_sig);
+fn write(comptime T: type, buffer: [*]u8, dec_sig_in: u64, dec_exp_in: i32) usize {
+    var dec_sig = dec_sig_in;
+    const is_f32 = (T == f32);
+    const threshold: u64 = if (is_f32) 100_000_000 else 10_000_000_000_000_000;
+    const max_digits_offset: i32 = if (is_f32) 7 else 15; // MAX_DIGITS10 - 2
+    const extra_digit = dec_sig >= threshold;
+    var dec_exp = dec_exp_in + max_digits_offset + @intFromBool(extra_digit);
+    // f32: ensure at least 8 digits (Rust lines 1054-1057).
+    if (is_f32 and dec_sig < 10_000_000) {
+        dec_sig *= 10;
+        dec_exp -= 1;
+    }
+    const sig_len = if (is_f32)
+        writeSignificandF32(buffer + 1, dec_sig, extra_digit)
+    else
+        writeSignificand(buffer + 1, dec_sig);
     buffer[0] = buffer[1];
 
     var pos: usize = if (sig_len > 1) blk: {
@@ -831,20 +864,41 @@ fn computeExpShift(bin_exp: i32, dec_exp: i32) i32 {
 const dec_exp_min = -292;
 
 /// Normalize significand to 16+ digits for write()/writeSignificand().
-/// For f64 (U=u64) the result already has 16+ digits, so this is a no-op.
+/// Normal f64 results already have 16+ digits so normalization is a no-op for them;
+/// f64 subnormals may have fewer digits and need normalization.
 fn normalizeSig(comptime U: type, result: ToDecimalResult) ToDecimalResult {
-    if (U == u64) return result;
     var sig = result.sig;
     var exp = result.exp;
+    // f32: normalize to 8+ digits (threshold 10^7).
+    // f64: normalize to 16+ digits (threshold 10^15).
+    const target: u32 = if (U == u32) 7 else 16;
     const log2_sig = @as(u32, 63) - @as(u32, @clz(sig));
     var d = (log2_sig * 77) >> 8;
+    if (d >= target) return result;
     d += @intFromBool(sig >= small_pow10[d + 1]);
-    if (d < 16) {
-        const diff = 16 - d;
+    if (d < target) {
+        const diff = target - d;
         sig *= small_pow10[diff];
         exp -= @as(i32, @intCast(diff));
     }
     return .{ .sig = sig, .exp = exp };
+}
+
+/// Schubfach multiply with InexactToOdd rounding.
+/// For f64 (U=u64): 192-bit multiply with full pow10, returns upper 64 bits.
+/// For f32 (U=u32): 128-bit multiply with pow10_hi only, returns upper 32 bits
+///   (zero-extended to u64). Matches the C reference's overloaded umulhi_inexact_to_odd.
+inline fn schubfachMulUpper(comptime U: type, pow10_hi: u64, pow10_lo: u64, val: u64) u64 {
+    if (U == u32) {
+        // f32: pow10_hi * val produces a 96-bit product (val fits in 32 bits).
+        // Take bits 32-95, split into 32-bit upper/lower halves, InexactToOdd.
+        const p: u64 = @truncate((@as(u128, pow10_hi) * val) >> 32);
+        const p_hi: u32 = @truncate(p >> 32);
+        const p_lo: u32 = @truncate(p);
+        return @as(u64, p_hi | @intFromBool((p_lo >> 1) != 0));
+    } else {
+        return umul192Upper64InexactToOdd(pow10_hi, pow10_lo, val);
+    }
 }
 
 fn toDecimalSchubfach(comptime U: type, bin_sig: U, regular: bool, dec_exp: i32, exp_shift: i32) ToDecimalResult {
@@ -856,11 +910,14 @@ fn toDecimalSchubfach(comptime U: type, bin_sig: U, regular: bool, dec_exp: i32,
     const lsb = bin_sig & 1;
     const lower_val = (bin_sig_shifted - (@as(U, @intFromBool(regular)) + 1)) << @intCast(exp_shift);
     const pow10 = pow10_significands[@intCast(-dec_exp - dec_exp_min)];
-    const pow10_hi = pow10[0];
-    const pow10_lo = pow10[1];
-    const lower = umul192Upper64InexactToOdd(pow10_hi, pow10_lo, lower_val) + lsb;
+    // Overestimate required for Schubfach correctness.
+    // For f64: add 1 to low word (sufficient for 192-bit multiply).
+    // For f32: add 1 to high word (needed for 128-bit multiply with pow10_hi only).
+    const pow10_hi = pow10[0] + @as(u64, @intFromBool(U == u32));
+    const pow10_lo = pow10[1] + @as(u64, @intFromBool(U == u64));
+    const lower = schubfachMulUpper(U, pow10_hi, pow10_lo, lower_val) + lsb;
     const upper_val = (bin_sig_shifted + 2) << @intCast(exp_shift);
-    const upper = umul192Upper64InexactToOdd(pow10_hi, pow10_lo, upper_val) - lsb;
+    const upper = schubfachMulUpper(U, pow10_hi, pow10_lo, upper_val) - lsb;
 
     // The idea of using a single shorter candidate is by Cassio Neri.
     // It is less or equal to the upper bound by construction.
@@ -870,7 +927,7 @@ fn toDecimalSchubfach(comptime U: type, bin_sig: U, regular: bool, dec_exp: i32,
         .exp = dec_exp,
     };
 
-    const scaled_sig = umul192Upper64InexactToOdd(pow10_hi, pow10_lo, bin_sig_shifted << @intCast(exp_shift));
+    const scaled_sig = schubfachMulUpper(U, pow10_hi, pow10_lo, bin_sig_shifted << @intCast(exp_shift));
     const dec_sig_under = scaled_sig >> 2;
     const dec_sig_over = dec_sig_under + 1;
 
@@ -890,9 +947,9 @@ fn toDecimalFast(comptime U: type, bin_sig: U, bin_exp: i32, regular: bool) ToDe
 
     const pow10 = pow10_significands[@intCast(-dec_exp - dec_exp_min)];
     const pow10_hi = pow10[0];
-    var pow10_lo = pow10[1];
+    const pow10_lo = pow10[1];
 
-    if (regular) {
+    if (U == u64 and regular) {
         const res = umul192Upper128(pow10_hi, pow10_lo - 1, bin_sig << @intCast(exp_shift));
         const integral: u64 = @truncate(res >> 64);
         const fractional: u64 = @truncate(res);
@@ -927,9 +984,6 @@ fn toDecimalFast(comptime U: type, bin_sig: U, bin_exp: i32, regular: bool) ToDe
         }
     }
 
-    pow10_lo += 1;
-
-    // Fallback to Schubfach to guarantee correctness and switch to overestimates.
     return toDecimalSchubfach(U, bin_sig, regular, dec_exp, exp_shift);
 }
 
@@ -982,21 +1036,21 @@ pub fn writer(comptime T: type, value: T, buffer: [*]u8) usize {
     if (bin_exp < 0 and bin_exp >= -num_sig_bits) {
         const f = bin_sig >> @intCast(-bin_exp);
         if ((f << @intCast(-bin_exp)) == bin_sig) {
-            // Normalize to a 16-digit significand so write() produces
-            // the correct exponent (e.g. 1 → "1e+00" not "0.000000000000001e+15").
-            // Use @clz to estimate floor(log10(f)), correct by at most 1.
+            // Normalize significand so write() produces the correct exponent.
+            // f32: normalize to 8 digits (scale target 7). f64: 16 digits (scale target 15).
+            const scale_target: u32 = if (T == f32) 7 else 15;
             const log2 = @as(u32, 63) - @as(u32, @clz(@as(u64, f)));
             var d = (log2 * 77) >> 8; // ≈ floor(log10(f))
             d += @intFromBool(f >= small_pow10[d + 1]);
-            const scale = 15 - d;
+            const scale = scale_target - d;
 
-            return pos + write(buffer[pos..], f * small_pow10[scale], -@as(i32, @intCast(scale)));
+            return pos + write(T, buffer[pos..], f * small_pow10[scale], -@as(i32, @intCast(scale)));
         }
     }
 
     const res = toDecimalFast(U, bin_sig, bin_exp, regular);
 
-    return pos + write(buffer[pos..], res.sig, res.exp);
+    return pos + write(T, buffer[pos..], res.sig, res.exp);
 }
 
 /// A utility struct for formatting a floating-point number using the zmij algorithm.
