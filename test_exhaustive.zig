@@ -6,7 +6,7 @@ const std = @import("std");
 const zmij = @import("zmij.zig");
 
 fn ftoa(value: f32) []const u8 {
-    var buf = zmij.Formatter(f32){};
+    var buf = zmij.Buffer(f32){};
     return buf.format(value);
 }
 

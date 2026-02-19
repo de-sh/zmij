@@ -63,7 +63,7 @@ pub fn main() !void {
         }
         const std_time = timer.read();
 
-        var zmij_buf = zmij.Formatter(f64){};
+        var zmij_buf = zmij.Buffer(f64){};
         const zmij_val = zmij_buf.format(bv.value);
         const std_val = try std.fmt.bufPrint(&buf, "{e}", .{bv.value});
 

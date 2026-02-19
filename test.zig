@@ -6,14 +6,14 @@ const expectEqual = std.testing.expectEqual;
 fn dtoa(value: f64) []const u8 {
     // Use function-local static to avoid returning a dangling stack pointer.
     const S = struct {
-        var buf = zmij.Formatter(f64){};
+        var buf = zmij.Buffer(f64){};
     };
     return S.buf.format(value);
 }
 
 fn ftoa(value: f32) []const u8 {
     const S = struct {
-        var buf = zmij.Formatter(f32){};
+        var buf = zmij.Buffer(f32){};
     };
     return S.buf.format(value);
 }
@@ -150,7 +150,7 @@ test "all_exponents" {
 // ── f32 tests ──────────────────────────────────────────────────────
 
 test "f32" {
-    var buf = zmij.Formatter(f32){};
+    var buf = zmij.Buffer(f32){};
     const f: f32 = 1.234;
     try expectEqualStrings("1.234e0", buf.format(f));
 }
