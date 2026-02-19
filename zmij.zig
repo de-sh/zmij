@@ -822,8 +822,8 @@ pub fn dtoa(value: f64, buffer: [*]u8) usize {
             return pos + 3;
         }
         if (bin_sig == 0) {
-            buffer[pos] = '0';
-            return pos + 1;
+            @memcpy(buffer[pos..][0..3], "0e0");
+            return pos + 3;
         }
         // Handle subnormals.
         bin_sig |= implicit_bit;

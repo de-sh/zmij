@@ -16,8 +16,8 @@ test "normal" {
 }
 
 test "zero" {
-    try expectEqualStrings("0", dtoa(0.0));
-    try expectEqualStrings("-0", dtoa(-0.0));
+    try expectEqualStrings("0e0", dtoa(0.0));
+    try expectEqualStrings("-0e0", dtoa(-0.0));
 }
 
 test "inf" {
@@ -51,6 +51,6 @@ test "zero_exponent" {
 }
 
 test "zero_fraction" {
-    try expectEqualStrings("0", dtoa(0.0));
+    try expectEqualStrings("0e0", dtoa(0.0));
     try expectEqualStrings("1e0", dtoa(1.0));
 }
