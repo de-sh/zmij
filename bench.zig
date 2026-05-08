@@ -1,35 +1,33 @@
 const std = @import("std");
-const time = std.time;
+const Io = std.Io;
 const zmij = @import("zmij.zig");
 
-pub fn main() !void {
-    var stdout_buffer: [1024]u8 = undefined;
-    var stdout_writer = std.fs.File.stdout().writer(&stdout_buffer);
-    const stdout = &stdout_writer.interface;
+pub fn main(init: std.process.Init) !void {
+    var ts: Io.Timestamp = undefined;
     const test_values = [_]f64{ 123.456, std.math.pi, 1e-20, 1.2345678901234567e300, 0.0 };
 
-    try stdout.print("{s:<25} | {s:<15} | {s:<25} | {s:<15}\n", .{ "Value(std.fmt)", "Avg. Time (ns)", "Value(zmij)", "Avg. Time (ns)" });
-    try stdout.print("{s:-<25}-|-{s:-<15}-|-{s:-<25}-|-{s:-<15}\n", .{ "", "", "", "" });
+    std.debug.print("{s:<25} | {s:<15} | {s:<25} | {s:<15}\n", .{ "Value(std.fmt)", "Avg. Time (ns)", "Value(zmij)", "Avg. Time (ns)" });
+    std.debug.print("{s:-<25}-|-{s:-<15}-|-{s:-<25}-|-{s:-<15}\n", .{ "", "", "", "" });
 
     inline for (test_values) |val| {
         const iterations = 1_000_000;
         var buf: [128]u8 = undefined;
 
         // Benchmark std.fmt
-        var timer = try time.Timer.start();
+        ts = Io.Clock.awake.now(init.io);
         for (0..iterations) |_| {
-            _ = try std.fmt.bufPrint(&buf, "{e}", .{val});
+            _ = try std.fmt.float.render(&buf, val, .{ .mode = .scientific, .precision = null });
             std.mem.doNotOptimizeAway(&buf);
         }
-        const std_time = timer.read();
+        const std_time = ts.untilNow(init.io, .awake).toNanoseconds();
 
         // Benchmark zmij
-        timer = try time.Timer.start();
+        ts = Io.Clock.awake.now(init.io);
         for (0..iterations) |_| {
             _ = zmij.dtoa(val, &buf);
             std.mem.doNotOptimizeAway(&buf);
         }
-        const zmij_time = timer.read();
+        const zmij_time = ts.untilNow(init.io, .awake).toNanoseconds();
 
         const std_val = try std.fmt.bufPrint(&buf, "{e}", .{val});
         var zmij_buf = zmij.Buffer{};
@@ -38,8 +36,6 @@ pub fn main() !void {
         const std_avg = @as(f64, @floatFromInt(std_time)) / iterations;
         const zmij_avg = @as(f64, @floatFromInt(zmij_time)) / iterations;
 
-        try stdout.print("{s:<25} | {d:>15} | {s:<25} | {d:>15}\n", .{ std_val, std_avg, zmij_val, zmij_avg });
+        std.debug.print("{s:<25} | {d:>15} | {s:<25} | {d:>15}\n", .{ std_val, std_avg, zmij_val, zmij_avg });
     }
-
-    try stdout.flush();
 }
